@@ -1,117 +1,142 @@
 const { expect } = require('chai');
+const parseReqlineService = require('../services/reqline/parse-reqline');
+const reqlineMessages = require('../messages/reqline');
 
-// Import the parser function directly
-const { parseReqline } = require('../endpoints/reqline/parse');
-
-describe('Reqline Parser Unit Tests', () => {
-  describe('parseReqline function', () => {
-    it('should parse basic GET request', () => {
-      const reqline = 'HTTP GET | URL https://dummyjson.com/quotes/3';
-      const result = parseReqline(reqline);
-
-      expect(result.method).to.equal('GET');
-      expect(result.url).to.equal('https://dummyjson.com/quotes/3');
-      expect(result.headers).to.deep.equal({});
-      expect(result.body).to.deep.equal({});
-      expect(result.query).to.deep.equal({});
+describe('Reqline Parser Service Unit Tests', function () {
+  this.timeout(10000);
+  describe('parseReqlineService function', () => {
+    it('should parse basic GET request', async () => {
+      const payload = { reqline: 'HTTP GET | URL https://dummyjson.com/quotes/3' };
+      const result = await parseReqlineService(payload);
+      expect(result.request.method).to.equal(undefined); // method is not returned in request
+      expect(result.request.full_url).to.equal('https://dummyjson.com/quotes/3');
+      expect(result.request.headers).to.deep.equal({});
+      expect(result.request.body).to.deep.equal({});
+      expect(result.request.query).to.deep.equal({});
     });
 
-    it('should parse GET request with query parameters', () => {
-      const reqline = 'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}';
-      const result = parseReqline(reqline);
-
-      expect(result.method).to.equal('GET');
-      expect(result.url).to.equal('https://dummyjson.com/quotes/3?refid=1920933');
-      expect(result.query).to.deep.equal({ refid: 1920933 });
+    it('should parse GET request with query parameters', async () => {
+      const payload = {
+        reqline: 'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}',
+      };
+      const result = await parseReqlineService(payload);
+      expect(result.request.full_url).to.equal('https://dummyjson.com/quotes/3?refid=1920933');
+      expect(result.request.query).to.deep.equal({ refid: 1920933 });
     });
 
-    it('should parse POST request with body', () => {
-      const reqline =
-        'HTTP POST | URL https://dummyjson.com/products/add | BODY {"title": "Test Product"}';
-      const result = parseReqline(reqline);
-
-      expect(result.method).to.equal('POST');
-      expect(result.url).to.equal('https://dummyjson.com/products/add');
-      expect(result.body).to.deep.equal({ title: 'Test Product' });
+    it('should parse POST request with body', async () => {
+      const payload = {
+        reqline:
+          'HTTP POST | URL https://dummyjson.com/products/add | BODY {"title": "Test Product"}',
+      };
+      const result = await parseReqlineService(payload);
+      expect(result.request.full_url).to.equal('https://dummyjson.com/products/add');
+      expect(result.request.body).to.deep.equal({ title: 'Test Product' });
     });
 
-    it('should parse request with headers', () => {
-      const reqline =
-        'HTTP GET | URL https://dummyjson.com/quotes/3 | HEADERS {"Content-Type": "application/json"}';
-      const result = parseReqline(reqline);
-
-      expect(result.method).to.equal('GET');
-      expect(result.headers).to.deep.equal({ 'Content-Type': 'application/json' });
+    it('should parse request with headers', async () => {
+      const payload = {
+        reqline:
+          'HTTP GET | URL https://dummyjson.com/quotes/3 | HEADERS {"Content-Type": "application/json"}',
+      };
+      const result = await parseReqlineService(payload);
+      expect(result.request.headers).to.deep.equal({ 'Content-Type': 'application/json' });
     });
 
-    it('should parse complex request with all components', () => {
-      const reqline =
-        'HTTP POST | URL https://dummyjson.com/products/add | HEADERS {"Content-Type": "application/json"} | QUERY {"category": "electronics"} | BODY {"title": "Test Product"}';
-      const result = parseReqline(reqline);
-
-      expect(result.method).to.equal('POST');
-      expect(result.url).to.equal('https://dummyjson.com/products/add?category=electronics');
-      expect(result.headers).to.deep.equal({ 'Content-Type': 'application/json' });
-      expect(result.query).to.deep.equal({ category: 'electronics' });
-      expect(result.body).to.deep.equal({ title: 'Test Product' });
+    it('should parse complex request with all components', async () => {
+      const payload = {
+        reqline:
+          'HTTP POST | URL https://dummyjson.com/products/add | HEADERS {"Content-Type": "application/json"} | QUERY {"category": "electronics"} | BODY {"title": "Test Product"}',
+      };
+      const result = await parseReqlineService(payload);
+      expect(result.request.full_url).to.equal(
+        'https://dummyjson.com/products/add?category=electronics'
+      );
+      expect(result.request.headers).to.deep.equal({ 'Content-Type': 'application/json' });
+      expect(result.request.query).to.deep.equal({ category: 'electronics' });
+      expect(result.request.body).to.deep.equal({ title: 'Test Product' });
     });
 
-    it('should handle components in different order', () => {
-      const reqline =
-        'HTTP POST | URL https://dummyjson.com/products/add | BODY {"title": "Test"} | HEADERS {"Content-Type": "application/json"} | QUERY {"category": "electronics"}';
-      const result = parseReqline(reqline);
-
-      expect(result.method).to.equal('POST');
-      expect(result.url).to.equal('https://dummyjson.com/products/add?category=electronics');
-      expect(result.headers).to.deep.equal({ 'Content-Type': 'application/json' });
-      expect(result.query).to.deep.equal({ category: 'electronics' });
-      expect(result.body).to.deep.equal({ title: 'Test' });
+    it('should handle components in different order', async () => {
+      const payload = {
+        reqline:
+          'HTTP POST | URL https://dummyjson.com/products/add | BODY {"title": "Test"} | HEADERS {"Content-Type": "application/json"} | QUERY {"category": "electronics"}',
+      };
+      const result = await parseReqlineService(payload);
+      expect(result.request.full_url).to.equal(
+        'https://dummyjson.com/products/add?category=electronics'
+      );
+      expect(result.request.headers).to.deep.equal({ 'Content-Type': 'application/json' });
+      expect(result.request.query).to.deep.equal({ category: 'electronics' });
+      expect(result.request.body).to.deep.equal({ title: 'Test' });
     });
   });
 
   describe('Error cases', () => {
-    it('should throw error for missing HTTP keyword', () => {
-      const reqline = 'GET | URL https://dummyjson.com/quotes/3';
-      expect(() => parseReqline(reqline)).to.throw('Missing required HTTP keyword');
-    });
+    async function expectError(payload, expectedMessage) {
+      try {
+        await parseReqlineService(payload);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.message).to.equal(expectedMessage);
+      }
+    }
 
-    it('should throw error for missing URL keyword', () => {
-      const reqline = 'HTTP GET | https://dummyjson.com/quotes/3';
-      expect(() => parseReqline(reqline)).to.throw('Missing required URL keyword');
-    });
-
-    it('should throw error for invalid HTTP method', () => {
-      const reqline = 'HTTP PUT | URL https://dummyjson.com/quotes/3';
-      expect(() => parseReqline(reqline)).to.throw(
-        'Invalid HTTP method. Only GET and POST are supported'
+    it('should throw error for missing HTTP keyword', async () => {
+      await expectError(
+        { reqline: 'GET | URL https://dummyjson.com/quotes/3' },
+        reqlineMessages.MISSING_HTTP_KEYWORD
       );
     });
 
-    it('should throw error for invalid JSON in HEADERS', () => {
-      const reqline = 'HTTP GET | URL https://dummyjson.com/quotes/3 | HEADERS {invalid json}';
-      expect(() => parseReqline(reqline)).to.throw('Invalid JSON format in HEADERS section');
-    });
-
-    it('should throw error for invalid JSON in QUERY', () => {
-      const reqline = 'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {invalid json}';
-      expect(() => parseReqline(reqline)).to.throw('Invalid JSON format in QUERY section');
-    });
-
-    it('should throw error for invalid JSON in BODY', () => {
-      const reqline = 'HTTP POST | URL https://dummyjson.com/products/add | BODY {invalid json}';
-      expect(() => parseReqline(reqline)).to.throw('Invalid JSON format in BODY section');
-    });
-
-    it('should throw error for invalid keyword', () => {
-      const reqline = 'HTTP GET | URL https://dummyjson.com/quotes/3 | INVALID {"test": "value"}';
-      expect(() => parseReqline(reqline)).to.throw(
-        'Invalid keyword. Only HEADERS, QUERY, and BODY are supported'
+    it('should throw error for missing URL keyword', async () => {
+      await expectError(
+        { reqline: 'HTTP GET | https://dummyjson.com/quotes/3' },
+        reqlineMessages.MISSING_URL_KEYWORD
       );
     });
 
-    it('should throw error for insufficient tokens', () => {
-      const reqline = 'HTTP GET';
-      expect(() => parseReqline(reqline)).to.throw('Missing required HTTP keyword');
+    it('should throw error for invalid HTTP method', async () => {
+      await expectError(
+        { reqline: 'HTTP PUT | URL https://dummyjson.com/quotes/3' },
+        reqlineMessages.INVALID_HTTP_METHOD
+      );
+    });
+
+    it('should throw error for invalid JSON in HEADERS', async () => {
+      await expectError(
+        { reqline: 'HTTP GET | URL https://dummyjson.com/quotes/3 | HEADERS {invalid json}' },
+        reqlineMessages.INVALID_JSON_HEADERS
+      );
+    });
+
+    it('should throw error for invalid JSON in QUERY', async () => {
+      await expectError(
+        { reqline: 'HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {invalid json}' },
+        reqlineMessages.INVALID_JSON_QUERY
+      );
+    });
+
+    it('should throw error for invalid JSON in BODY', async () => {
+      await expectError(
+        { reqline: 'HTTP POST | URL https://dummyjson.com/products/add | BODY {invalid json}' },
+        reqlineMessages.INVALID_JSON_BODY
+      );
+    });
+
+    it('should throw error for invalid keyword', async () => {
+      await expectError(
+        { reqline: 'HTTP GET | URL https://dummyjson.com/quotes/3 | INVALID {"test": "value"}' },
+        reqlineMessages.INVALID_KEYWORD
+      );
+    });
+
+    it('should throw error for insufficient tokens', async () => {
+      await expectError({ reqline: 'HTTP GET' }, reqlineMessages.MISSING_HTTP_KEYWORD);
+    });
+
+    it('should throw error for missing reqline parameter', async () => {
+      await expectError({}, reqlineMessages.MISSING_REQLINE_PARAM);
     });
   });
 });

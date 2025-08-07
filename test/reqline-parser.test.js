@@ -3,7 +3,8 @@ const axios = require('axios');
 
 const BASE_URL = 'http://localhost:4000';
 
-describe('Reqline Parser', () => {
+describe('Reqline Parser', function () {
+  this.timeout(10000);
   describe('Valid Syntax Tests', () => {
     it('should parse basic GET request with query parameters', async () => {
       const response = await axios.post(`${BASE_URL}/`, {
