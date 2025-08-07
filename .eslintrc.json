@@ -16,6 +16,7 @@
   "plugins": ["prettier", "mocha"],
   "rules": {
     "prettier/prettier": "error",
+    "no-unused-expressions": "warn",
     "no-unused-vars": "warn",
     "no-console": "off",
     "func-names": "off",

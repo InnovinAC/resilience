@@ -1,217 +1,112 @@
-# Resilience17 Backend Assessment for Node.js
+# Reqline Parser
 
-This project follows the MVC architecture and incorporates clean OOP concepts such as repositories and proxies/interactors to abstract dependencies. It also adheres to functional programming paradigms and JavaScript conventions.
+A simple parser for a curl-like tool called reqline that parses HTTP request statements and executes them.
 
-# Data Flow Overview
+## Syntax
 
-The typical flow of data is:
-
-**Client Request → Server Function → Middleware (Optional) → Endpoint Handler → Client Request Service Function → Third Party Request**
-
----
-
-# Programming Conventions
-
-- Files that export a function should start with a verb to indicate an action; otherwise, they should be named as nouns.
-- Exports from a file should match the file name to enable easy identification of resources.
-- Use **kebab-case** for filenames.
-- Use **camelCase** for functions and variable names.
-- Use **snake_case** for request and response payloads.
-
----
-
-# Folder Overview
-
-## Core Folder
-
-The `core` folder defines abstractions for common dependencies used in developing backend applications in Node.js. These include:
-
-- Express
-- Database access
-- Crypto/hashing libraries
-- JWT
-- Loggers
-- Error handlers
-- Data validators
-- External network requests, etc.
-
-Each subfolder is a local library that can be imported into your code like so: `@app-core/{foldername}`.
-
----
-
-## Entry Point and Endpoints
-
-The entry point to the application is `app.js`, which creates the Express app, establishes the database connection, and registers endpoints defined in the `endpoints` folder.
-
-Endpoints are organized by resource into subfolders within the `endpoints` directory. For example, `/users` HTTP endpoints are stored in the `endpoints/users` folder. The filename for each endpoint should start with a verb.
-
-Each endpoint file uses the `createHandler` function to define the route and its corresponding controller/handler. The handler’s role is primarily to prepare a service argument object for the relevant service that processes the request.
-
-### Example
-
-Create a registration endpoint
-
-**Filename: /endpoints/onboarding/register.js**
-
-```javascript
-const { createHandler } = require('@app-core/server');
-const registerService = require('../../services/onboarding/register');
-
-module.exports = createHandler({
-  path: '/register',
-  method: 'post',
-  async handler(rc, helpers) {
-    const payload = rc.body;
-    payload.requestMeta = rc.properties;
-
-    const response = await registerService(payload);
-    return {
-      status: helpers.http_statuses.HTTP_201_CREATED,
-      data: response,
-    };
-  },
-});
+```
+HTTP [method] | URL [URL value] | HEADERS [header json value] | QUERY [query value json] | BODY [body value json]
 ```
 
----
+## Examples
 
-## Middlewares
-
-Middleware functions are defined in the `middlewares` folder and exposed via the `index.js` file within that folder. Middleware functions are also defined using the `createHandler` function (but without specifying a path or method).
-
-Middleware, like endpoints, can delegate work to services—especially when database access is needed (see more on this below). To add data to the request object, return a `RequestArguments` object from the middleware.
-
-### Example
-
-Simple user authentication middleware
-
-**Filename: /middlewares/user-auth.js**
-
-```javascript
-const { createHandler } = require('@app-core/server');
-const { throwAppError, ERROR_CODE } = require('@app-core/errors');
-const AuthenticationMessages = require('@app-core/messages/authentication');
-
-module.exports = createHandler({
-  path: '*',
-  method: '',
-  async handler(rc) {
-    const authHeader = rc.headers.authorization;
-
-    if (!authHeader) {
-      throwAppError(AuthenticationMessages.MISSING_AUTH_HEADER, ERROR_CODE.NOAUTHERR);
-    }
-
-    return {
-      augments: { meta: { user: {} } },
-    };
-  },
-});
+### Basic GET request
+```
+HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {"refid": 1920933}
 ```
 
-Expose middlewares throught the `/middlewares/index.js` file
-
-```javascript
-const userAuth = require('./user-auth');
-
-module.exports = {
-  userAuth,
-};
+### GET request with headers
+```
+HTTP GET | URL https://dummyjson.com/quotes/3 | HEADERS {"Content-Type": "application/json"} | QUERY {"refid": 1920933}
 ```
 
----
+### POST request with body
+```
+HTTP POST | URL https://dummyjson.com/products/add | BODY {"title": "Test Product", "price": 99.99}
+```
 
-## Services
+### Complex request with all components
+```
+HTTP POST | URL https://dummyjson.com/products/add | HEADERS {"Content-Type": "application/json", "Authorization": "Bearer token123"} | QUERY {"category": "electronics"} | BODY {"title": "Test Product", "price": 99.99}
+```
 
-Services are functions that perform specific units of work. The name of a service function should clearly indicate what it does. Request service functions handle client requests and are invoked by the handlers. Other helper functions can be created to assist the request services.
+## Syntax Rules
 
-Strive to keep your code **DRY** (Don't Repeat Yourself). Group service functions by resource. For example, all `login`, `register`, `logout`, and `forgotPassword` services should be placed in the `services/onboarding` folder.
+- All keywords are UPPERCASE: HTTP, HEADERS, QUERY, BODY
+- Single delimiter: pipe `|`
+- Exactly one space on each side of keywords and delimiters
+- HTTP methods: GET or POST only (uppercase)
+- HTTP and URL are required and fixed order
+- Other keywords (HEADERS, QUERY, BODY) can appear in any order or be omitted
 
-Utility functions shared across resources (e.g., `getCurrentDatetime`) should be stored in the `services/utils` folder.
+## API Usage
 
-The return object from a request service function is sent directly to the client, so ensure it is formatted appropriately. You can use response handler functions for formatting.
+### Endpoint
+`POST /`
 
-### Example
-
-```javascript
-const validator = require('@app-core/validator');
-
-const parsedSpec = validator.parse(`root{
-  name is a required string
-  email is a required email
-  password is a required string
-}`);
-
-async function registerUser(serviceData) {
-  const data = validator.validate(serviceData, parsedSpec);
-
-  // code logic
-
-  return response;
+### Request Format
+```json
+{
+  "reqline": "HTTP GET | URL https://dummyjson.com/quotes/3 | QUERY {\"refid\": 1920933}"
 }
-
-module.exports = registerUser;
 ```
 
----
-
-## Error Handling
-
-Errors should be thrown using the `throwAppError` function from the `@app-core/errors` library. This function takes in a message and an error code.
-
-Error messages should be stored in the `/messages` folder, with message files categorized by resource.
-
-Use an error code from the `ERROR_CODE` object exported by the same library. Errors thrown this way are automatically handled by the server functions that manage requests and responses.
-
----
-
-## Logging
-
-The `@app-core/logger` library exposes two main loggers:
-
-- `appLogger` – For general logs
-- `timeLogger` – For measuring process execution duration
-
-Server functions automatically log all request and error responses. These loggers are mostly used for logging in background processes.
-
----
-
-## External Network Requests
-
-Use the `@app-core/http-request` library to make external network requests to third-party APIs. This library is designed with an accompanying mocking module and an interface similar to the popular Axios library.
-
-It simplifies making external requests outside the application.
-
----
-
-# How to Start the Server
-
-Follow these steps to run the application locally:
-
-### 1. Install Dependencies
-
-```bash
-npm install
+### Success Response Format
+```json
+{
+  "request": {
+    "query": {"refid": 1920933},
+    "body": {},
+    "headers": {},
+    "full_url": "https://dummyjson.com/quotes/3?refid=1920933"
+  },
+  "response": {
+    "http_status": 200,
+    "duration": 347,
+    "request_start_timestamp": 1691234567890,
+    "request_stop_timestamp": 1691234568237,
+    "response_data": {
+      "id": 3,
+      "quote": "Thinking is the capital, Enterprise is the way, Hard Work is the solution.",
+      "author": "Abdul Kalam"
+    }
+  }
+}
 ```
 
-### 2. Register Your Endpoint Folder
-
-Open the `app.js` file and add your endpoint folder to the `ENDPOINT_CONFIGS` array:
-
-```javascript
-const ENDPOINT_CONFIGS = [{ path: './endpoints/{your-endpoint-folder-name}/' }];
+### Error Response Format
+```json
+{
+  "error": true,
+  "message": "Specific reason for the error"
+}
 ```
 
-> Replace `{your-endpoint-folder-name}` with the actual folder name of your endpoint.
+## Error Messages
 
-### 3. Start the Server
+- "Missing required HTTP keyword"
+- "Missing required URL keyword"
+- "Invalid HTTP method. Only GET and POST are supported"
+- "HTTP method must be uppercase"
+- "Invalid spacing around pipe delimiter"
+- "Invalid JSON format in HEADERS section"
+- "Invalid JSON format in QUERY section"
+- "Invalid JSON format in BODY section"
+- "Keywords must be uppercase"
+- "Missing space after keyword"
+- "Multiple spaces found where single space expected"
 
-In your terminal, run the following command:
+## Test Endpoint
 
-```bash
-node app.js
-```
+`GET /test` - Returns test cases and usage examples
 
-The server should now be running and ready to handle requests at the port 8811 or any port configured in the `.env` file
+## Implementation Details
 
----
+- Built without using regex as required
+- Uses string splitting and parsing
+- Implements all syntax validation rules
+- Handles JSON parsing errors gracefully
+- Uses axios for HTTP requests
+- Includes timing information in responses
+- Supports all required HTTP methods (GET, POST)
+- Handles query parameter building automatically 
